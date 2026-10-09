@@ -4,7 +4,7 @@ import { raidGoldDelta } from './economy';
 import { BuildLockedError, GameError, IllegalTransitionError } from './errors';
 import { RaidSimulation } from './raid';
 import type { Registries } from './registry';
-import type { Dungeon, Phase, RaidResult, Room } from './types';
+import type { Dungeon, Phase, RaidResult, Room, RunState } from './types';
 
 /** The only legal transitions: Preparation → Raid → Results → Preparation. */
 const NEXT_PHASE: Record<Phase, Phase> = {
@@ -21,6 +21,9 @@ export interface GameOptions {
 }
 
 export type GameListener = (game: Game) => void;
+
+/** Called at save checkpoints with the state to persist. Never called during a raid. */
+export type CheckpointListener = (state: RunState) => void;
 
 /**
  * Owns all game state and enforces the phase machine and the build lock.
@@ -42,9 +45,14 @@ export class Game {
   lastResult: RaidResult | null = null;
   paused = false;
   speed = 1;
+  /** Ids of unlocked progression entries. Persisted with the run; nothing grants unlocks yet. */
+  unlocks: string[] = [];
+  /** Incremented whenever the whole run is replaced (new game or restore). */
+  runVersion = 0;
 
   private readonly random: () => number;
   private readonly listeners = new Set<GameListener>();
+  private readonly checkpointListeners = new Set<CheckpointListener>();
   private nextRoomNumber = 1;
 
   constructor(options: GameOptions) {
@@ -65,8 +73,71 @@ export class Game {
     this.paused = false;
     this.speed = this.config.raid.speedOptions[0] ?? 1;
     this.nextRoomNumber = 1;
+    this.unlocks = [];
     this.dungeonVersion++;
+    this.runVersion++;
     this.emit();
+  }
+
+  /** JSON-safe copy of the run. Only available outside a raid. */
+  snapshot(): RunState {
+    if (this.phase === 'Raid') {
+      throw new GameError('INVALID_ACTION', 'The run cannot be saved during a raid');
+    }
+    return structuredClone({
+      phase: this.phase,
+      gold: this.gold,
+      cycle: this.cycle,
+      dungeon: this.dungeon,
+      nextRoomNumber: this.nextRoomNumber,
+      lastResult: this.lastResult,
+      unlocks: this.unlocks,
+    });
+  }
+
+  /**
+   * Replaces the run with a saved snapshot. Every content id is checked against the
+   * registries first; on error a GameError is thrown and the current run is untouched.
+   */
+  restore(state: RunState): void {
+    const dungeon = structuredClone(state.dungeon);
+    for (const room of dungeon.rooms) {
+      this.registries.rooms.get(room.typeId);
+      room.monsterTypeIds.forEach((id) => this.registries.monsters.get(id));
+      room.trapTypeIds.forEach((id) => this.registries.traps.get(id));
+    }
+    for (const [a, b] of dungeon.connections) {
+      getRoom(dungeon, a);
+      getRoom(dungeon, b);
+    }
+    if (!findPath(dungeon)) {
+      throw new GameError('INVALID_ACTION', 'Saved dungeon has no path from entrance to core');
+    }
+    if (state.phase === 'Results' && !state.lastResult) {
+      throw new GameError('INVALID_ACTION', 'Saved Results phase has no raid result');
+    }
+    this.dungeon = dungeon;
+    this.phase = state.phase;
+    this.gold = state.gold;
+    this.cycle = state.cycle;
+    this.nextRoomNumber = state.nextRoomNumber;
+    this.lastResult = state.lastResult ? { ...state.lastResult } : null;
+    this.unlocks = [...state.unlocks];
+    this.raid = null;
+    this.paused = false;
+    this.speed = this.config.raid.speedOptions[0] ?? 1;
+    this.dungeonVersion++;
+    this.runVersion++;
+    this.emit();
+  }
+
+  /**
+   * Subscribes to save checkpoints: after each committed build action, on entering
+   * Results and on returning to Preparation. Raid ticks never trigger a checkpoint.
+   */
+  onCheckpoint(listener: CheckpointListener): () => void {
+    this.checkpointListeners.add(listener);
+    return () => this.checkpointListeners.delete(listener);
   }
 
   onChange(listener: GameListener): () => void {
@@ -150,6 +221,7 @@ export class Game {
     this.paused = false;
     this.phase = 'Results';
     this.emit();
+    this.checkpoint();
   }
 
   /** Results → Preparation. */
@@ -158,6 +230,7 @@ export class Game {
     this.raid = null;
     this.phase = 'Preparation';
     this.emit();
+    this.checkpoint();
   }
 
   // ---- Raid controls -------------------------------------------------------
@@ -266,9 +339,17 @@ export class Game {
     this.gold -= cost;
   }
 
+  /** Every build action ends here, so each committed Preparation change is a checkpoint. */
   private dungeonChanged(): void {
     this.dungeonVersion++;
     this.emit();
+    this.checkpoint();
+  }
+
+  private checkpoint(): void {
+    if (this.checkpointListeners.size === 0) return;
+    const state = this.snapshot();
+    for (const listener of this.checkpointListeners) listener(state);
   }
 
   private emit(): void {

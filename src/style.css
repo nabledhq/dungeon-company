@@ -455,3 +455,38 @@ button {
     font-size: 18px;
   }
 }
+
+/* ---- Start screen ------------------------------------------------------- */
+
+.start-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.start-title {
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #000;
+}
+
+.start-error {
+  margin: 12px 0 20px;
+  color: #ff6b5e;
+}
+
+.start-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.start-secondary {
+  height: 52px;
+  padding: 0 22px;
+  font-size: 18px;
+}
