@@ -14,9 +14,24 @@ npm run build      # type-check, then write static files to dist/
 npm run preview    # serve dist/ locally
 ```
 
-`dist/` is plain static HTML/JS/CSS with relative paths, so it can be hosted from any
-static web server or sub-path. Browsers block ES modules on `file://` URLs, so serve
-the folder (for example with `npm run preview`) instead of double-clicking `index.html`.
+`dist/` is plain static HTML/JS/CSS built for the `/dungeon-company/` sub-path (see
+below). Browsers block ES modules on `file://` URLs, so serve the folder (for example
+with `npm run preview`) instead of double-clicking `index.html`.
+
+## Play online / Deployment
+
+Play in the browser, no setup needed: **https://nabledhq.github.io/dungeon-company/**
+
+* **Local development**: `npm run dev` starts the dev server at `/` (for example
+  `http://localhost:5173/`).
+* **Production build**: `npm run build` writes `dist/` with all asset URLs under
+  `/dungeon-company/`, the GitHub Pages sub-path. `npm run preview` serves that build
+  at `http://localhost:4173/dungeon-company/`.
+* **Deployment**: the workflow `.github/workflows/deploy-pages.yml` builds the game and
+  deploys `dist/` to GitHub Pages on every push to `main`. You can also run it by hand
+  from the Actions tab ("Deploy to GitHub Pages" → Run workflow).
+* **One-time maintainer setup**: in the repository, open **Settings → Pages** and set
+  **Source** to **GitHub Actions**. Until then the deploy job fails.
 
 ## How to play
 
