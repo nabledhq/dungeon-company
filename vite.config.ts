@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
-  // Relative asset paths so the built game can be served from any sub-path.
-  base: './',
+export default defineConfig(({ command, isPreview }) => ({
+  // Production builds (and `vite preview` of them) are served from GitHub Pages at
+  // /dungeon-company/; the dev server uses /.
+  base: command === 'build' || isPreview ? '/dungeon-company/' : '/',
   build: {
     // Phaser alone is ~1.2 MB minified; keep it in its own cached chunk.
     chunkSizeWarningLimit: 1500,
@@ -18,4 +19,4 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
   },
-});
+}));
