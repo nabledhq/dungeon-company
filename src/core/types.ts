@@ -47,3 +47,24 @@ export interface RaidResult {
   partyStrengthEnd: number;
   roomsVisited: number;
 }
+
+/** Phases a run can be saved in. Raids are never saved. */
+export type SavablePhase = Exclude<Phase, 'Raid'>;
+
+/**
+ * Plain JSON-safe snapshot of everything needed to rebuild a run between raids.
+ * Transient raid state (hero positions, timers, RNG) is deliberately not included.
+ */
+export interface RunState {
+  phase: SavablePhase;
+  gold: number;
+  /** Number of raids started so far (see Game.cycle). */
+  cycle: number;
+  dungeon: Dungeon;
+  /** Counter used to allocate the next built room id. */
+  nextRoomNumber: number;
+  /** Summary shown on the Results screen; null in Preparation before the first raid. */
+  lastResult: RaidResult | null;
+  /** Ids of unlocked progression entries. Nothing grants unlocks yet. */
+  unlocks: string[];
+}

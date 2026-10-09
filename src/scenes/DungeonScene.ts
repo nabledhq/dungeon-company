@@ -37,6 +37,7 @@ export class DungeonScene extends Phaser.Scene {
   private readonly getInsets: () => ViewportInsets;
 
   private renderedVersion = -1;
+  private centeredRun = -1;
   private corridors!: Phaser.GameObjects.Graphics;
   private roomLayer!: Phaser.GameObjects.Container;
   private partyLayer!: Phaser.GameObjects.Container;
@@ -67,6 +68,7 @@ export class DungeonScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.game_.update(Math.min(delta, MAX_FRAME_MS));
     if (this.renderedVersion !== this.game_.dungeonVersion) this.redrawDungeon();
+    if (this.centeredRun !== this.game_.runVersion) this.centerCamera();
     this.updateParty();
     this.updateKeyboardPan(delta);
   }
@@ -127,6 +129,7 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Centre the dungeon in the part of the canvas not covered by the HUD. */
   private centerCamera(): void {
+    this.centeredRun = this.game_.runVersion;
     const rooms = this.game_.dungeon.rooms;
     if (rooms.length === 0) return;
     const xs = rooms.map((r) => r.col * CELL);
