@@ -48,8 +48,18 @@ The game loops through three phases: **Preparation → Raid → Results → Prep
 Camera: drag with the mouse or use the arrow keys/WASD to pan, and the mouse wheel to zoom.
 
 The sidebar categories are placeholders for now. They list the registered content, and
-placing it will be added later. State is in memory only, so reloading the page starts a
-new game.
+placing it will be added later.
+
+### Saving
+
+The run is saved automatically to `localStorage` (key `dungeon-company:save`) at
+checkpoints: after every build action (build, remove, hire, place), on entering Results
+and on returning to Preparation. Nothing is saved during a raid, so reloading mid-raid
+returns you to the Preparation state just before that raid. On page load a start screen
+offers **Continue** (only when a valid save exists) and **New Game**, which asks for
+confirmation before overwriting an existing run. Unreadable or incompatible saves are
+copied to `dungeon-company:save:corrupt` and the start screen offers a new game instead.
+If `localStorage` is unavailable the game still runs, just without persistence.
 
 ## Project layout
 
@@ -60,6 +70,8 @@ new game.
 | `src/content/placeholders.ts` | Placeholder rooms, monsters, traps, hero party generator and reward hook |
 | `src/scenes/DungeonScene.ts` | Phaser scene: renders the dungeon and party, camera pan/zoom, and drives the raid clock |
 | `src/ui/Hud.ts`, `src/style.css` | DOM HUD overlaid on the canvas: top bar, sidebar and Results screen |
+| `src/ui/StartScreen.ts` | New Game / Continue overlay shown on page load |
+| `src/save/` | Versioned save envelope, validation and `migrate()` hook (`schema.ts`), `localStorage` access (`storage.ts`) |
 | `tests/` | Vitest unit tests for the core logic |
 
 Every state change goes through `Game` (`src/core/game.ts`). Illegal phase transitions
